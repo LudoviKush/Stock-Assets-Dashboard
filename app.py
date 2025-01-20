@@ -3,7 +3,7 @@ import yfinance as yf
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
-from scraper import scrape_approfondimenti
+from scraper import scrape_ilsole24ore, scrape_milanofinanza, scrape_soldionline
 import pandas as pd
 import feedparser
 import pytz
@@ -195,7 +195,7 @@ def fetch_news():
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
             feed = feedparser.parse(url, request_headers=headers)
-            if not feed.entries:
+            if not NEWS_FEEDS.entries:
                 st.warning(f"Nessuna notizia disponibile da {source}")
                 continue
                 
@@ -236,19 +236,19 @@ def fetch_news():
     
     # Fetch news from scraper.py
     try:
-        scraped_news = scrape_approfondimenti()
+        scraped_news = scrape_soldionline() + scrape_milanofinanza() + scrape_ilsole24ore()
         for news in scraped_news:
             news_items.append({
                 'title': news['title'],
                 'link': news['link'],
-                'source': 'Soldionline',
-                'date': datetime.now(pytz.timezone('Europe/Rome')),  # Make scraped news dates timezone-aware
-                'description': ''
+                'source': news['source'],
+                'date': datetime.now(pytz.timezone('Europe/Rome')),
+                'description': ''  # Scraped news might not have descriptions
             })
     except Exception as e:
-        st.warning(f"Errore nel recupero delle notizie da Soldionline: {str(e)}")
-    
-    # Sort and remove duplicates
+        st.warning(f"Errore nel recupero delle notizie da scraper: {str(e)}")
+
+    # Sort and remove duplicates (unchanged)
     news_items.sort(key=lambda x: x['date'], reverse=True)
     seen_titles = set()
     unique_news = []
@@ -257,8 +257,9 @@ def fetch_news():
         if title_normalized not in seen_titles:
             seen_titles.add(title_normalized)
             unique_news.append(item)
-    
+
     return unique_news
+
 def filter_news(news_items, filter_type, stocks):
     if filter_type == "Tutte le Notizie":
         return news_items
