@@ -1,4 +1,4 @@
-#!/Users/testuser/Downloads/Tino Osti Dashboard/.venv/bin/python3.12
+#!/Users/testuser/Downloads/stock-assets-dashboard/.venv/bin/python3.12
 
 import datetime
 import os

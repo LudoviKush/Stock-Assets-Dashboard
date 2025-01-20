@@ -1,6 +1,4 @@
-#!/bin/sh
-'''exec' "/Users/testuser/Downloads/Tino Osti Dashboard/.venv/bin/python3.12" "$0" "$@"
-' '''
+#!/Users/testuser/Downloads/stock-assets-dashboard/.venv/bin/python3.12
 # -*- coding: utf-8 -*-
 import re
 import sys

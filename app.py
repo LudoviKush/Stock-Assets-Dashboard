@@ -2,7 +2,8 @@ import streamlit as st
 import yfinance as yf
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime
+from scraper import scrape_approfondimenti
 import pandas as pd
 import feedparser
 import pytz
@@ -186,35 +187,29 @@ def fetch_stock_data(symbol, period='1mo'):
 @st.cache_data(ttl=300)
 def fetch_news():
     news_items = []
+    
+    # Fetch RSS feed news
     for source, url in NEWS_FEEDS.items():
         try:
-            # Aggiungiamo headers per simulare un browser
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
-            
             feed = feedparser.parse(url, request_headers=headers)
-            
-            # Se il feed è vuoto, salta alla prossima fonte
             if not feed.entries:
                 st.warning(f"Nessuna notizia disponibile da {source}")
                 continue
                 
             for entry in feed.entries[:10]:
                 try:
-                    # Gestione più robusta della data
                     dt = None
                     for date_field in ['published_parsed', 'updated_parsed', 'created_parsed']:
                         if hasattr(entry, date_field) and getattr(entry, date_field):
                             dt = datetime(*getattr(entry, date_field)[:6])
                             break
-                    
                     if dt is None:
                         dt = datetime.now()
-                    
                     dt = pytz.timezone('Europe/Rome').localize(dt)
                     
-                    # Gestione più robusta della descrizione
                     description = ''
                     if hasattr(entry, 'description'):
                         description = entry.description
@@ -223,10 +218,9 @@ def fetch_news():
                     elif hasattr(entry, 'content'):
                         description = entry.content[0].value
                     
-                    # Pulizia della descrizione
-                    description = re.sub('<[^<]+?>', '', description)  # Rimuove i tag HTML
-                    description = re.sub(r'\s+', ' ', description)     # Normalizza gli spazi
-                    description = description.strip()                  # Rimuove spazi iniziali e finali
+                    description = re.sub('<[^<]+?>', '', description)
+                    description = re.sub(r'\s+', ' ', description)
+                    description = description.strip()
                     
                     news_items.append({
                         'title': entry.title.strip(),
@@ -236,12 +230,25 @@ def fetch_news():
                         'description': description
                     })
                 except Exception as e:
-                    continue  # Salta silenziosamente le notizie problematiche
-                    
+                    continue
         except Exception as e:
-            continue  # Salta silenziosamente le fonti problematiche
+            continue
     
-    # Ordina per data e rimuovi duplicati
+    # Fetch news from scraper.py
+    try:
+        scraped_news = scrape_approfondimenti()
+        for news in scraped_news:
+            news_items.append({
+                'title': news['title'],
+                'link': news['link'],
+                'source': 'Soldionline',
+                'date': datetime.now(pytz.timezone('Europe/Rome')),  # Make scraped news dates timezone-aware
+                'description': ''
+            })
+    except Exception as e:
+        st.warning(f"Errore nel recupero delle notizie da Soldionline: {str(e)}")
+    
+    # Sort and remove duplicates
     news_items.sort(key=lambda x: x['date'], reverse=True)
     seen_titles = set()
     unique_news = []
@@ -252,7 +259,6 @@ def fetch_news():
             unique_news.append(item)
     
     return unique_news
-
 def filter_news(news_items, filter_type, stocks):
     if filter_type == "Tutte le Notizie":
         return news_items
